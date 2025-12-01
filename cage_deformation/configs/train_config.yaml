@@ -1,0 +1,109 @@
+# Cage-based Shape Deformation Training Configuration
+# v9: Anti-Bunching Strategy (基於 Active Contours 理論)
+# Based on IPC (SIGGRAPH 2020) + Neural Cages (CVPR 2020) + Kass et al. (IJCV 1988)
+
+experiment:
+  project_name: "Deformation-FSL"
+  run_name: "temp"
+  entity: "bergerchen719-national-taiwan-university"
+  output_dir: "weight_files/temp"
+  save_code: true
+
+wandb:
+  enable: true
+
+data:
+  dataset_dir: "data"
+  template_dir: "template"
+  template_names: ["circle", "rectangle", "rounded_rect", "ellipse_h", "ellipse_v", "triangle", "star"] #, "annulus"]
+  split_file: "weight_files/train_val_split.csv"
+  val_split_ratio: 0.1
+  batch_size: 64
+  num_workers: 2  # Reduced from 4 to prevent resource exhaustion
+  num_points: 4096  # Total points (boundary + interior)
+  
+  # v9: Ordered boundary for Edge Uniform loss (anti-bunching)
+  num_target_boundary: 1024   # Target boundary points (kept for compatibility)
+  ordered_boundary: true     # CRITICAL: Keep boundary points in contour order for Sliding loss
+
+model:
+  input_channels: 4  # RGB (3) + Template Mask (1)
+  cage_num_vertices: 128
+  cage_radius: 1.2
+  latent_dim: 256  # Latent feature dimension for downstream tasks
+  
+  # v9: Multi-Scale Gaussian Fourier Features (Tancik et al., NeurIPS 2020)
+  # Multi-scale prevents bunching by balancing low/mid/high frequencies
+  use_gaussian_ff: true
+  gaussian_ff_features: 96          # Total features (32 per scale)
+  gaussian_ff_scale: 10.0           # Fallback single-scale (not used when multiscale=true)
+  use_multiscale_ff: true           # ★ v9: Use multi-scale Fourier
+  multiscale_ff_scales: [1.0, 5.0, 15.0]  # Low/Mid/High frequencies (removed 30.0 to prevent noise)
+
+train:
+  epochs: 300
+  device: "cuda"
+  
+  # Curriculum Learning Phases (Per README - extended warmup)
+  warmup_affine_epochs: 5    # Phase I: Affine only
+  warmup_cage_epochs: 50     # Phase II: Cage enabled (no residual until epoch 50)
+  
+  # Loss Weights (Based on README - High cage stability)
+  alpha_sdf: 3000.0          # SDF alignment + coverage loss (prevents collapse)
+  alpha_cage_smooth: 100.0   # Increased for cage stability (protect latent z)
+  alpha_cage_edge: 100.0     # Increased for cage stability
+  alpha_cage_repul: 500.0    # IPC Barrier weight
+  alpha_mvc_negative: 1000.0 # High - act as hard constraint (per README)
+  alpha_area: 10.0           # (deprecated - kept for compatibility)
+  
+  # ================================================================
+  # v9: Anti-Bunching Strategy (Kass et al., IJCV 1988 - 被引用 27,634 次)
+  # ================================================================
+  # 
+  # 核心理論: Active Contours (Snakes)
+  # - External Energy: SDF 梯度 → 提供「貼合推力」(法向力)
+  # - Internal Energy: Edge Uniform → 提供「切向張力」(防止堆積)
+  #
+  # 物理比喻:
+  # 原方案 (Chamfer): 像門口放免費黃金，所有人蜂擁而上堆積
+  # 新方案 (Edge Uniform): 每人穿帶刺盔甲，擠太近會推開 → 形成流動
+  # ================================================================
+  
+  # v11 black hole
+  alpha_grad_flow: 100.0
+
+  # ★ DISABLED: Suction (Chamfer) - 會導致 bunching (堆積)
+  alpha_suction: 0.0          
+  
+  # ★ INCREASED: Sliding (Edge Uniform) - 防止堆積的唯一數學解
+  alpha_edge_uniform: 10.0   # [v9] CRITICAL - 強制點均勻分布 (200-500)
+  
+  # ★ DISABLED: Residual Magnitude - 完全釋放 residual
+  alpha_residual_mag: 0.1     # [v9] DISABLED - 不回彈，讓 residual 自由移動
+  
+  # ★ INCREASED: Residual Smooth - 確保線條平滑
+  alpha_residual_smooth: 5.0  # [v9] INCREASED - 防止高頻抖動
+  
+  # Spatially Adaptive Regularization (備用，當 alpha_residual_mag > 0 時生效)
+  residual_adaptive_alpha: 50.0   # Sensitivity: higher = softer in concave regions
+  residual_min_stiffness: 0.01    # Minimum stiffness: prevents collapse
+  
+  # Barrier Function Parameters
+  barrier_safe_radius: 0.05  # Minimum distance between points and edges
+  
+  optimizer:
+    # Phase III LR Separation:
+    # In Phase III, Affine+Cage are already trained, so we use lower LR to protect latent z
+    # Residual is newly activated and needs higher LR to learn quickly
+    lr: 1e-4                   # LR for Backbone + Affine + Cage (lower in Phase III)
+    residual_lr: 5e-4          # LR for Residual Head (higher to fit concavities)
+    weight_decay: 1e-5
+  
+  scheduler:
+    T_0: 50
+    T_mult: 2
+    min_lr: 1e-6
+    clip_grad_norm: 5.0  # For Log Barrier stability
+  
+  save_interval: 10
+  viz_interval: 5
