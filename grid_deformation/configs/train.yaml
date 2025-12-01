@@ -1,0 +1,112 @@
+experiment:
+  entity: "bergerchen719-national-taiwan-university"
+  project_name: "Deformation-FSL"
+  run_name: "curvature_weighted_v7"  # 曲率加权采样 + 优化物理参数
+  output_dir: "weight_files/tunev7_curvature"
+  save_code: true
+
+data:
+  dataset_dir: "data"
+  template_dir: "template"
+  split_file: "weight_files/train_val_split.csv"
+  template_names: ["circle", "rectangle", "triangle", "rounded_rect", "annulus"]
+  val_split_ratio: 0.1
+  num_points: 2048
+  batch_size: 64  # 略微降低以容納新模塊
+  num_workers: 4
+
+model:
+  input_channels: 4
+  cage_resolution: 32
+  coarse_grid_res: 8  # [升級] 8×8 Coarse Grid (64個控制點) 用於大尺度彎曲
+
+train:
+  device: "cuda"
+  epochs: 400
+  save_interval: 20
+  viz_interval: 5
+  
+  curriculum:
+    ramp_end_ratio: 0.5
+    
+    # 任務：用剛性網格做 Affine 和 大致彎曲
+    # === Phase 1: 暴力壓縮 (維持 v6 設定) ===
+    phase1:
+      mu: 2.0
+      lam: 0.1
+      w_align_scale: 25.0 # 強力拉伸
+      w_flow: 2.0
+      w_repulsion: 20.0
+      w_physics_scale: 1.0
+      w_boundary_sdf: 0.0
+      w_attn_guide: 10.0
+
+    # === Phase 2: 過渡期 (維持 v6 設定) ===
+    phase2:
+      mu_start: 2.0
+      mu_end: 0.5
+      lam_start: 0.1
+      lam_end: 0.01
+      w_align_scale: 1.0
+      w_boundary_sdf_scale: 10.0
+      w_repulsion: 10.0
+      w_physics_scale_start: 1.0
+      w_physics_scale_end: 0.5
+      w_flow_start: 2.0
+      w_attn_guide_max: 30.0
+      w_flow_end: 1.0
+
+    # === Phase 3: 液態金屬模式 (Liquid Mode) ===
+    phase3:
+      # [物理: 幾乎不存在]
+      # mu 降到 0.05 -> 幾乎沒有剪切阻力
+      mu_start: 0.5
+      mu_end: 0.05
+      lam_start: 0.01
+      lam_end: 0.001
+      
+      # [Loss: 獨尊 SDF]
+      # 徹底關閉 Chamfer -> 消除凹陷阻力
+      w_align_scale: 0.0   # <--- [歸零]
+      
+      # 核爆級吸力 -> 強制貼合所有細節
+      w_boundary_sdf_scale: 50.0 # <--- [提升] 原本 8.0 -> 50.0
+      
+      # [拓樸防線]
+      # 依賴超高 Repulsion 維持結構
+      w_repulsion_scale: 50.0
+      
+      w_physics_scale_start: 0.5
+      w_physics_scale_end: 0.1 # 物理 Loss 幾乎只剩下 Repulsion 在運作
+      
+      # [銳角解鎖]
+      # 關閉平滑 -> 允許銳角
+      w_flow_start: 1.0
+      w_flow_end: 0.0      # <--- [歸零]
+      
+      w_attn_guide_start: 5.0
+      w_attn_guide_end: 0.0
+  
+  # === Loss Weights (基礎值) ===
+  alpha_align: 250.0        # 確保外輪廓完全匹配
+  alpha_boundary_sdf: 150.0  # 強化邊界對齊
+  alpha_repulsion: 100.0
+  alpha_physics: 10.0       # [提高] Coarse Grid支持大变形，提高物理约束保持网格整洁
+  alpha_topology: 150.0     # [重命名] 拓扑保持约束（原 interior）
+  
+  optimizer:
+    lr: 1.0e-4    # 提高學習率加快深度變形的收斂
+    weight_decay: 1.0e-4
+  
+  scheduler:
+    type: "cosine_annealing"
+    warmup_epochs: 30
+    T_0: 20
+    T_mult: 2
+    min_lr: 1.0e-6
+    clip_grad_norm: 2.0
+
+wandb:
+  enable: true
+  mode: "online"
+

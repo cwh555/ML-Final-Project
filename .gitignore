@@ -1,0 +1,88 @@
+# ==========================
+# 1. LaTeX 
+# ==========================
+*.aux
+*.bbl
+*.blg
+*.log
+*.out
+*.toc
+*.synctex.gz
+*.fls
+*.fdb_latexmk
+*.dvi
+*.lof
+*.lot
+
+*.pdf
+
+# ==========================
+# 2. Python & Environment
+# ==========================
+__pycache__/
+*.py[cod]
+*$py.class
+
+# ==========================
+# 3. Virtual Environment
+# ==========================
+venv/
+env/
+.env
+.venv/
+anaconda3/
+
+# Distribution / Packaging
+build/
+dist/
+*.egg-info/
+
+# ==========================
+# 4. Jupyter Notebooks
+# ==========================
+# Checkpoints 備份檔 (非常重要，不然 commit 會很亂)
+.ipynb_checkpoints
+*/.ipynb_checkpoints/*
+
+# ==========================
+# 5. ML Data & Models (資料與模型)
+# ==========================
+# 這是最重要的一區：避免上傳大型檔案到 GitHub
+
+# 資料集資料夾 (假設你把資料放在 data 或 dataset 資料夾)
+data/
+dataset/
+datasets/
+
+# model
+*.pth
+*.pt
+*.ckpt
+*.h5
+*.pkl
+models/
+checkpoints/
+saved_models/
+
+# log
+logs/
+runs/            # TensorBoard
+wandb/           # Weights & Biases
+lightning_logs/  # PyTorch Lightning
+results/         # 實驗結果輸出圖
+
+# ==========================
+# 5. IDE & OS 
+# ==========================
+# Mac OS
+.DS_Store
+
+# VS Code
+.vscode/
+
+# PyCharm / JetBrains
+.idea/
+
+# ==========================
+# 6. Others
+# ==========================
