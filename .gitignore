@@ -61,7 +61,7 @@ datasets/
 *.h5
 *.pkl
 models/
-checkpoints/
+
 saved_models/
 
 # log
