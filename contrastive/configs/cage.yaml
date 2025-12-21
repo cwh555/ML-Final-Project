@@ -1,0 +1,83 @@
+project:
+  name: "geometric-contrastive"
+  seed: 42
+  device: "cuda:5"
+
+wandb:
+  enable: False
+  project_name: "geometric-stn-pretrain"
+  run_name: "exp04_lite_mlp_se"
+  entity: null
+
+data:
+  img_size: 256
+  template_dir: "./new_template" # 存放 .npz template 的資料夾
+  mnist_root: "./data/mnist"  
+  omniglot_root: "./data/omniglot"
+  template_names:
+    - "annulus"
+    - "circle"
+    - "ellipse_h"
+    - "ellipse_v"
+    - "rectangle"
+    - "rounded_rect"
+    - "star"
+    - "triangle"
+  # 訓練集設定
+  train:
+    root_dir: "./data/train"
+    batch_size: 32
+    num_workers: 8
+    shuffle: True
+    drop_last: True      # Batch Norm 需要
+    pin_memory: True
+    
+  # 驗證集設定
+  val:
+    root_dir: "./data/valid"
+    batch_size: 32
+    num_workers: 5
+    shuffle: False
+    drop_last: False
+    pin_memory: True
+
+model:
+  stn:
+    ckpt_path: "./checkpoint/new_stn.pth"
+    
+  encoder:
+    ckpt_path: null  
+    eval_path: "./checkpoints/cage/best_encoder.pth"
+    encoder_config:
+      input_dim_per_template: 4358
+      num_templates: 8
+
+      shared_hidden_dim: 512
+      shared_layers: 2
+      fusion_hidden_dim: 1024
+      fusion_layers: 1
+      output_dim: 256
+
+train:
+  epochs: 100
+  save_dir: "./checkpoints/testing/"
+  save_every_n_epoch: 20
+  check_val_every_n_epoch: 3
+  
+  # Loss params
+  temperature: 0.1
+  
+  # Optimizer (AdamW)
+  lr: 1e-3
+  weight_decay: 1e-4
+
+  # Scheduler (Cosine with Warmup)
+  # warmup_epochs: 10
+  mnist_query_ratio: 0.05   # 針對 60k 的 Query Set (最花時間的部分)
+  mnist_support_ratio: 0.05 # 針對 10k 的 Support Set (建議全用，確保每類都有足夠樣本)
+  mnist_thicken: True   # 是否對 MNIST 做加粗處理
+  mnist_thicken_kernel_size: 3  # 加粗程度 (建議 3 或 5)
+  mnist_thicken_iterations: 8
+  omniglot_thicken: True
+  omniglot_thicken_kernel_size: 3  
+  omniglot_thicken_iterations: 8
