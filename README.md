@@ -5,7 +5,7 @@ This repository is the official implementation of [Learning From Shapes: Classif
 > Note: Access to the official OpenReview link is restricted to registered participants of the NTU ML-MiniConf. If you do not have access, please refer to the full paper included in this repository: [`Learning_From_Shapes__Classification_As_A_Cross_Domain_Task_Via_Deformation.pdf`](./Learning_From_Shapes__Classification_As_A_Cross_Domain_Task_Via_Deformation.pdf).
 > 
 > Below is a screenshot of the official OpenReview submission record for verification:
-![Openreview Submission Record](submission.png)
+![Openreview Submission Record](assets/submission.png)
 
 ## Requirements
 1. Set up the environment
